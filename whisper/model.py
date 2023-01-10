@@ -25,26 +25,6 @@ class ModelDimensions:
     n_text_head: int
     n_text_layer: int
 
-
-class LayerNorm(nn.LayerNorm):
-    def forward(self, x: Tensor) -> Tensor:
-        return super().forward(x.float()).type(x.dtype)
-
-
-class Linear(nn.Linear):
-    def forward(self, x: Tensor) -> Tensor:
-        return F.linear(
-            x, self.weight.to(x.dtype), None if self.bias is None else self.bias.to(x.dtype)
-        )
-
-
-class Conv1d(nn.Conv1d):
-    def _conv_forward(self, x: Tensor, weight: Tensor, bias: Optional[Tensor]) -> Tensor:
-        return super()._conv_forward(
-            x, weight.to(x.dtype), None if bias is None else bias.to(x.dtype)
-        )
-
-
 def sinusoids(length, channels, max_timescale=10000):
     """Returns sinusoids for positional embedding"""
     assert channels % 2 == 0
@@ -58,10 +38,10 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, n_state: int, n_head: int):
         super().__init__()
         self.n_head = n_head
-        self.query = Linear(n_state, n_state)
-        self.key = Linear(n_state, n_state, bias=False)
-        self.value = Linear(n_state, n_state)
-        self.out = Linear(n_state, n_state)
+        self.query = nn.Linear(n_state, n_state)
+        self.key = nn.Linear(n_state, n_state, bias=False)
+        self.value = nn.Linear(n_state, n_state)
+        self.out = nn.Linear(n_state, n_state)
 
     def forward(
         self,
@@ -106,14 +86,14 @@ class ResidualAttentionBlock(nn.Module):
         super().__init__()
 
         self.attn = MultiHeadAttention(n_state, n_head)
-        self.attn_ln = LayerNorm(n_state)
+        self.attn_ln = nn.LayerNorm(n_state)
 
         self.cross_attn = MultiHeadAttention(n_state, n_head) if cross_attention else None
-        self.cross_attn_ln = LayerNorm(n_state) if cross_attention else None
+        self.cross_attn_ln = nn.LayerNorm(n_state) if cross_attention else None
 
         n_mlp = n_state * 4
-        self.mlp = nn.Sequential(Linear(n_state, n_mlp), nn.GELU(), Linear(n_mlp, n_state))
-        self.mlp_ln = LayerNorm(n_state)
+        self.mlp = nn.Sequential(nn.Linear(n_state, n_mlp), nn.GELU(), nn.Linear(n_mlp, n_state))
+        self.mlp_ln = nn.LayerNorm(n_state)
 
     def forward(
         self,
@@ -132,14 +112,14 @@ class ResidualAttentionBlock(nn.Module):
 class AudioEncoder(nn.Module):
     def __init__(self, n_mels: int, n_ctx: int, n_state: int, n_head: int, n_layer: int):
         super().__init__()
-        self.conv1 = Conv1d(n_mels, n_state, kernel_size=3, padding=1)
-        self.conv2 = Conv1d(n_state, n_state, kernel_size=3, stride=2, padding=1)
+        self.conv1 = nn.Conv1d(n_mels, n_state, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv1d(n_state, n_state, kernel_size=3, stride=2, padding=1)
         self.register_buffer("positional_embedding", sinusoids(n_ctx, n_state))
 
         self.blocks: Iterable[ResidualAttentionBlock] = nn.ModuleList(
             [ResidualAttentionBlock(n_state, n_head) for _ in range(n_layer)]
         )
-        self.ln_post = LayerNorm(n_state)
+        self.ln_post = nn.LayerNorm(n_state)
 
     def forward(self, x: Tensor):
         """
@@ -170,7 +150,7 @@ class TextDecoder(nn.Module):
         self.blocks: Iterable[ResidualAttentionBlock] = nn.ModuleList(
             [ResidualAttentionBlock(n_state, n_head, cross_attention=True) for _ in range(n_layer)]
         )
-        self.ln = LayerNorm(n_state)
+        self.ln = nn.LayerNorm(n_state)
 
         mask = torch.empty(n_ctx, n_ctx).fill_(-np.inf).triu_(1)
         self.register_buffer("mask", mask, persistent=False)

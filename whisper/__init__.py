@@ -112,5 +112,7 @@ def load_model(name: str, device: Optional[Union[str, torch.device]] = None, dow
     dims = ModelDimensions(**checkpoint["dims"])
     model = Whisper(dims)
     model.load_state_dict(checkpoint["model_state_dict"])
+    
+    torch.quantization.quantize_dynamic(model=model, dtype=torch.qint8, inplace=True)
 
     return model.to(device)
