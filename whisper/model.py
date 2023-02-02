@@ -85,7 +85,7 @@ class ResidualAttentionBlock(nn.Module):
         super().__init__()
 
         self.attn = MultiHeadAttention(n_state, n_head)
-        self.attn = nn.MultiheadAttention(n_state, n_head, dtype=torch.float16)
+        self.attn = MultiHeadAttention(n_state, n_head)
         self.attn_ln = nn.LayerNorm(n_state, dtype=torch.float16)
 
         self.cross_attn = MultiHeadAttention(n_state, n_head) if cross_attention else None
