@@ -69,7 +69,7 @@ def available_models() -> List[str]:
     return list(_MODELS.keys())
 
 
-def load_model(name: str, device: Optional[Union[str, torch.device]] = None, download_root: str = None, in_memory: bool = False) -> Whisper:
+def load_model(name: str, device: Optional[Union[str, torch.device]] = None, download_root: str = None, in_memory: bool = False, fp16: bool = True) -> Whisper:
     """
     Load a Whisper ASR model
 
@@ -119,4 +119,4 @@ def load_model(name: str, device: Optional[Union[str, torch.device]] = None, dow
     model = Whisper(dims)
     model.load_state_dict(checkpoint["model_state_dict"])
 
-    return model.to(torch.float16).to(device)
+    return model.to(dtype=torch.float16 if fp16 else torch.float32, device=device) 
